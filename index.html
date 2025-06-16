@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa Interactivo de Fauna y Flora de Nicaragua</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    #map { height: 600px; width: 100%; }
+    .sidebar { width: 300px; background-color: #d1fae5; padding: 1.5rem; }
+    .filter-button { margin: 0.5rem 0; transition: transform 0.2s; }
+    .filter-button:hover { transform: scale(1.05); }
+    #info-panel { margin-top: 1rem; padding: 1rem; background-color: #e6fffa; border-radius: 8px; }
+    .popup-img { max-width: 100px; height: auto; border-radius: 4px; }
+    .popup { border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+    @media (max-width: 768px) { .sidebar { width: 100%; } }
+  </style>
+</head>
+<body class="bg-teal-50">
+  <div class="flex flex-col md:flex-row">
+    <!-- Panel lateral -->
+    <div class="sidebar">
+      <h2 class="text-2xl font-bold mb-4 text-teal-800">Explora la Biodiversidad</h2>
+      <input type="text" id="search" class="w-full p-2 mb-4 border rounded-lg" placeholder="Busca una especie o reserva...">
+      <button class="filter-button bg-teal-600 text-white px-4 py-2 rounded w-full hover:bg-teal-700" onclick="filterMarkers('all')">Todos</button>
+      <button class="filter-button bg-teal-600 text-white px-4 py-2 rounded w-full hover:bg-teal-700" onclick="filterMarkers('mammal')">Mamíferos</button>
+      <button class="filter-button bg-teal-600 text-white px-4 py-2 rounded w-full hover:bg-teal-700" onclick="filterMarkers('bird')">Aves</button>
+      <button class="filter-button bg-teal-600 text-white px-4 py-2 rounded w-full hover:bg-teal-700" onclick="filterMarkers('reptile')">Reptiles</button>
+      <button class="filter-button bg-teal-600 text-white px-4 py-2 rounded w-full hover:bg-teal-700" onclick="filterMarkers('amphibian')">Anfibios</button>
+      <button class="filter-button bg-teal-600 text-white px-4 py-2 rounded w-full hover:bg-teal-700" onclick="filterMarkers('plant')">Plantas</button>
+      <button class="filter-button bg-teal-600 text-white px-4 py-2 rounded w-full hover:bg-teal-700" onclick="filterMarkers('reserve')">Reservas</button>
+      <div id="info-panel" class="text-sm text-teal-900">
+        <p>Selecciona un marcador para ver detalles.</p>
+      </div>
+    </div>
+    <!-- Mapa -->
+    <div class="flex-1 p-4">
+      <h1 class="text-3xl font-bold text-center mb-4 text-teal-800">Mapa de Fauna y Flora de Nicaragua</h1>
+      <div id="map" class="rounded-lg shadow-lg"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Inicializar el mapa
+    var map = L.map('map').setView([12.8654, -85.2072], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Íconos personalizados
+    var mammalIcon = L.icon({ iconUrl: 'https://img.icons8.com/color/48/000000/paw.png', iconSize: [32, 32] });
+    var birdIcon = L.icon({ iconUrl: 'https://img.icons8.com/color/48/000000/bird.png', iconSize: [32, 32] });
+    var reptileIcon = L.icon({ iconUrl: 'https://img.icons8.com/color/48/000000/snake.png', iconSize: [32, 32] });
+    var amphibianIcon = L.icon({ iconUrl: 'https://img.icons8.com/color/48/000000/frog.png', iconSize: [32, 32] });
+    var plantIcon = L.icon({ iconUrl: 'https://img.icons8.com/color/48/000000/plant.png', iconSize: [32, 32] });
+    var reserveIcon = L.icon({ iconUrl: 'https://img.icons8.com/color/48/000000/mountain.png', iconSize: [32, 32] });
+
+    // Convertir coordenadas de formato DMS a decimal
+    function dmsToDecimal(degrees, minutes, direction) {
+      let decimal = parseFloat(degrees) + parseFloat(minutes) / 60;
+      if (direction === 'S' || direction === 'W') decimal = -decimal;
+      return decimal;
+    }
+
+    // Datos de reservas, fauna y flora
+    var markers = [
+      {
+        coords: [dmsToDecimal(14, 0, 'N'), dmsToDecimal(85, 30, 'W')],
+        type: 'reserve',
+        zone: 'Reserva de Biosfera Bosawás',
+        name: 'Reserva de Biosfera Bosawás',
+        popup: `
+          <b>Reserva de Biosfera Bosawás</b><br>
+          <img src="reservas/Reservabosawas.jpg" alt="Bosawás" class="popup-img"><br>
+          Descripción: Segunda selva tropical más grande del hemisferio occidental (2,000,000 ha). Protege bosques húmedos, ríos y el 10% de las especies del planeta.<br>
+          <b>Conservación:</b> Apoya la reforestación. Visita <a href="https://www.fundacionamigosdebosawas.org" target="_blank">Fundación Amigos de Bosawás</a>.
+        `,
+        icon: reserveIcon
+      },
+      {
+        coords: [dmsToDecimal(14, 0, 'N'), dmsToDecimal(85, 30, 'W')],
+        type: 'mammal',
+        zone: 'Reserva de Biosfera Bosawás',
+        name: 'Jaguar',
+        popup: `
+          <b>Reserva de Biosfera Bosawás</b><br>
+          <b>Especie: Jaguar (Panthera onca)</b><br>
+          <img src="fauna/jaguar.jpg" alt="Jaguar" class="popup-img"><br>
+          Estado: Casi amenazado<br>
+          Hábitat: Selva tropical<br>
+          Amenazas: Cacería, pérdida de hábitat<br>
+          <b>Conservación:</b> Apoya la reforestación. Visita <a href="https://www.fundacionamigosdebosawas.org" target="_blank">Fundación Amigos de Bosawás</a>.
+        `,
+        icon: mammalIcon
+      },
+      {
+        coords: [dmsToDecimal(14, 0, 'N'), dmsToDecimal(85, 30, 'W')],
+        type: 'plant',
+        zone: 'Reserva de Biosfera Bosawás',
+        name: 'Caoba',
+        popup: `
+          <b>Reserva de Biosfera Bosawás</b><br>
+          <b>Especie: Caoba (Swietenia macrophylla)</b><br>
+          <img src="flora/caoba.jpg" alt="Caoba" class="popup-img"><br>
+          Estado: Vulnerable<br>
+          Hábitat: Selva húmeda<br>
+          Amenazas: Tala ilegal, deforestación<br>
+          <b>Conservación:</b> Evita la tala ilegal para proteger este árbol maderable.
+        `,
+        icon: plantIcon
+      },
+      {
+        coords: [dmsToDecimal(14, 0, 'N'), dmsToDecimal(85, 30, 'W')],
+        type: 'plant',
+        zone: 'Reserva de Biosfera Bosawás',
+        name: 'Labios ardientes',
+        popup: `
+          <b>Reserva de Biosfera Bosawás</b><br>
+          <b>Especie: Labios ardientes (Psychotria elata)</b><br>
+          <img src="flora/labios-ardientes.jpg" alt="Labios ardientes" class="popup-img"><br>
+          Estado: No evaluado<br>
+          Hábitat: Selva húmeda<br>
+          Amenazas: Pérdida de hábitat<br>
+          <b>Conservación:</b> Protege los bosques tropicales para preservar polinizadores.
+        `,
+        icon: plantIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 0, 'N'), dmsToDecimal(84, 0, 'W')],
+        type: 'reserve',
+        zone: 'Reserva Biológica Indio Maíz',
+        name: 'Reserva Biológica Indio Maíz',
+        popup: `
+          <b>Reserva Biológica Indio Maíz</b><br>
+          <img src="reservas/Reservabiologicaindiomaiz.jpg" alt="Indio Maíz" class="popup-img"><br>
+          Descripción: Bosque tropical bien conservado (3,180 km²). Ideal para ecoturismo con senderos y recorridos por el río San Juan.<br>
+          <b>Conservación:</b> Apoya la conservación de bosques tropicales.
+        `,
+        icon: reserveIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 0, 'N'), dmsToDecimal(84, 0, 'W')],
+        type: 'mammal',
+        zone: 'Reserva Biológica Indio Maíz',
+        name: 'Jaguar',
+        popup: `
+          <b>Reserva Biológica Indio Maíz</b><br>
+          <b>Especie: Jaguar (Panthera onca)</b><br>
+          <img src="fauna/jaguar.jpg" alt="Jaguar" class="popup-img"><br>
+          Estado: Casi amenazado<br>
+          Hábitat: Selva tropical<br>
+          Amenazas: Cacería, pérdida de hábitat<br>
+          <b>Conservación:</b> Apoya la reforestación.
+        `,
+        icon: mammalIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 0, 'N'), dmsToDecimal(84, 0, 'W')],
+        type: 'plant',
+        zone: 'Reserva Biológica Indio Maíz',
+        name: 'Caoba',
+        popup: `
+          <b>Reserva Biológica Indio Maíz</b><br>
+          <b>Especie: Caoba (Swietenia macrophylla)</b><br>
+          <img src="flora/caoba.jpg" alt="Caoba" class="popup-img"><br>
+          Estado: Vulnerable<br>
+          Hábitat: Selva húmeda<br>
+          Amenazas: Tala ilegal, deforestación<br>
+          <b>Conservación:</b> Evita la tala ilegal para proteger este árbol maderable.
+        `,
+        icon: plantIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 0, 'N'), dmsToDecimal(84, 0, 'W')],
+        type: 'plant',
+        zone: 'Reserva Biológica Indio Maíz',
+        name: 'Labios ardientes',
+        popup: `
+          <b>Reserva Biológica Indio Maíz</b><br>
+          <b>Especie: Labios ardientes (Psychotria elata)</b><br>
+          <img src="flora/labios-ardientes.jpg" alt="Labios ardientes" class="popup-img"><br>
+          Estado: No evaluado<br>
+          Hábitat: Selva húmeda<br>
+          Amenazas: Pérdida de hábitat<br>
+          <b>Conservación:</b> Protege los bosques tropicales para preservar polinizadores.
+        `,
+        icon: plantIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 30, 'N'), dmsToDecimal(85, 40, 'W')],
+        type: 'reserve',
+        zone: 'Reserva de Biosfera Isla de Ometepe',
+        name: 'Reserva de Biosfera Isla de Ometepe',
+        popup: `
+          <b>Reserva de Biosfera Isla de Ometepe</b><br>
+          <img src="reservas/ometepe.jpg" alt="Ometepe" class="popup-img"><br>
+          Descripción: Cubre los volcanes Concepción y Maderas. Protege bosques tropicales, humedales y especies endémicas.<br>
+          <b>Conservación:</b> Promueve el ecoturismo sostenible.
+        `,
+        icon: reserveIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 30, 'N'), dmsToDecimal(85, 40, 'W')],
+        type: 'bird',
+        zone: 'Reserva de Biosfera Isla de Ometepe',
+        name: 'Guardabarranco',
+        popup: `
+          <b>Reserva de Biosfera Isla de Ometepe</b><br>
+          <b>Especie: Guardabarranco (Eumomota superciliosa)</b><br>
+          <img src="fauna/guardabarranco.jpg" alt="Guardabarranco" class="popup-img"><br>
+          Estado: Preocupación menor<br>
+          Hábitat: Bosques secos/húmedos<br>
+          Amenazas: Deforestación leve<br>
+          <b>Conservación:</b> Conserva los bosques para proteger al ave nacional.
+        `,
+        icon: birdIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 30, 'N'), dmsToDecimal(85, 40, 'W')],
+        type: 'amphibian',
+        zone: 'Reserva de Biosfera Isla de Ometepe',
+        name: 'Salamandra de Ometepe',
+        popup: `
+          <b>Reserva de Biosfera Isla de Ometepe</b><br>
+          <b>Especie: Salamandra de Ometepe (Bolitoglossa insularis)</b><br>
+          <img src="fauna/salamandra-de-ometepe.jpg" alt="Salamandra de Ometepe" class="popup-img"><br>
+          Estado: No evaluado (endémica)<br>
+          Hábitat: Bosques nubosos<br>
+          Amenazas: Turismo no regulado<br>
+          <b>Conservación:</b> Regula el turismo para proteger esta especie única.
+        `,
+        icon: amphibianIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 50, 'N'), dmsToDecimal(85, 58, 'W')],
+        type: 'reserve',
+        zone: 'Reserva Natural Volcán Mombacho',
+        name: 'Reserva Natural Volcán Mombacho',
+        popup: `
+          <b>Reserva Natural Volcán Mombacho</b><br>
+          <img src="reservas/Reservavolcanmombacho.jpg" alt="Mombacho" class="popup-img"><br>
+          Descripción: Volcán inactivo con bosques nubosos, hogar de salamandras y orquídeas endémicas.<br>
+          <b>Conservación:</b> Apoya la conservación de bosques nubosos.
+        `,
+        icon: reserveIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 50, 'N'), dmsToDecimal(85, 58, 'W')],
+        type: 'mammal',
+        zone: 'Reserva Natural Volcán Mombacho',
+        name: 'Jaguar',
+        popup: `
+          <b>Reserva Natural Volcán Mombacho</b><br>
+          <b>Especie: Jaguar (Panthera onca)</b><br>
+          <img src="fauna/jaguar.jpg" alt="Jaguar" class="popup-img"><br>
+          Estado: Casi amenazado<br>
+          Hábitat: Selva tropical<br>
+          Amenazas: Cacería, pérdida de hábitat<br>
+          <b>Conservación:</b> Apoya la reforestación para proteger su hábitat.
+        `,
+        icon: mammalIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 50, 'N'), dmsToDecimal(85, 58, 'W')],
+        type: 'bird',
+        zone: 'Reserva Natural Volcán Mombacho',
+        name: 'Guardabarranco',
+        popup: `
+          <b>Reserva Natural Volcán Mombacho</b><br>
+          <b>Especie: Guardabarranco (Eumomota superciliosa)</b><br>
+          <img src="fauna/guardabarranco.jpg" alt="Guardabarranco" class="popup-img"><br>
+          Estado: Preocupación menor<br>
+          Hábitat: Bosques secos/húmedos<br>
+          Amenazas: Deforestación leve<br>
+          <b>Conservación:</b> Conserva los bosques para proteger al ave nacional.
+        `,
+        icon: birdIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 8, 'N'), dmsToDecimal(85, 47, 'W')],
+        type: 'reserve',
+        zone: 'Refugio de Vida Silvestre La Flor',
+        name: 'Refugio de Vida Silvestre La Flor',
+        popup: `
+          <b>Refugio de Vida Silvestre La Flor</b><br>
+          <img src="reservas/Refugio-de-Vida-Silvestre-La-Flor.jpg" alt="La Flor" class="popup-img"><br>
+          Descripción: Playa con arribadas masivas de tortugas paslama. Protege ecosistemas costeros.<br>
+          <b>Conservación:</b> Protege las playas de desove.
+        `,
+        icon: reserveIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 8, 'N'), dmsToDecimal(85, 47, 'W')],
+        type: 'reptile',
+        zone: 'Refugio de Vida Silvestre La Flor',
+        name: 'Tortuga paslama',
+        popup: `
+          <b>Refugio de Vida Silvestre La Flor</b><br>
+          <b>Especie: Tortuga paslama (Lepidochelys olivacea)</b><br>
+          <img src="fauna/tortuga.jpg" alt="Tortuga paslama" class="popup-img"><br>
+          Estado: Vulnerable<br>
+          Hábitat: Costas del Pacífico<br>
+          Amenazas: Cacería de huevos, pesca incidental<br>
+          <b>Conservación:</b> Protege las playas de desove y evita la pesca incidental.
+        `,
+        icon: reptileIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 8, 'N'), dmsToDecimal(85, 47, 'W')],
+        type: 'plant',
+        zone: 'Refugio de Vida Silvestre La Flor',
+        name: 'Sacuanjoche',
+        popup: `
+          <b>Refugio de Vida Silvestre La Flor</b><br>
+          <b>Especie: Sacuanjoche (Plumeria rubra)</b><br>
+          <img src="flora/flor-de-sacuanjoche.jpg" alt="Sacuanjoche" class="popup-img"><br>
+          Estado: No evaluado<br>
+          Hábitat: Bosque seco<br>
+          Amenazas: Ninguna significativa<br>
+          <b>Conservación:</b> Promueve el cultivo sostenible de la flor nacional.
+        `,
+        icon: plantIcon
+      },
+      {
+        coords: [dmsToDecimal(14, 20, 'N'), dmsToDecimal(83, 10, 'W')],
+        type: 'reserve',
+        zone: 'Reserva Biológica Marina Cayos Miskitos',
+        name: 'Reserva Biológica Marina Cayos Miskitos',
+        popup: `
+          <b>Reserva Biológica Marina Cayos Miskitos</b><br>
+          <img src="reservas/Reservabiologicamiskitos.jpg" alt="Cayos Miskitos" class="popup-img"><br>
+          Descripción: Ecosistemas marinos (4,385.84 ha) con arrecifes de coral y tortugas marinas.<br>
+          <b>Conservación:</b> Protege los arrecifes de coral.
+        `,
+        icon: reserveIcon
+      },
+      {
+        coords: [dmsToDecimal(14, 20, 'N'), dmsToDecimal(83, 10, 'W')],
+        type: 'reptile',
+        zone: 'Reserva Biológica Marina Cayos Miskitos',
+        name: 'Tortuga paslama',
+        popup: `
+          <b>Reserva Biológica Marina Cayos Miskitos</b><br>
+          <b>Especie: Tortuga paslama (Lepidochelys olivacea)</b><br>
+          <img src="fauna/tortuga.jpg" alt="Tortuga paslama" class="popup-img"><br>
+          Estado: Vulnerable<br>
+          Hábitat: Costas del Pacífico<br>
+          Amenazas: Cacería de huevos, pesca incidental<br>
+          <b>Conservación:</b> Protege las playas de desove y evita la pesca incidental.
+        `,
+        icon: reptileIcon
+      },
+      {
+        coords: [dmsToDecimal(12, 30, 'N'), dmsToDecimal(83, 30, 'W')],
+        type: 'reserve',
+        zone: 'Reserva de Biosfera del Caribe Nicaragüense',
+        name: 'Reserva de Biosfera del Caribe Nicaragüense',
+        popup: `
+          <b>Reserva de Biosfera del Caribe Nicaragüense</b><br>
+          <img src="reservas/Reservadelcaribe.jpg" alt="Caribe Nicaragüense" class="popup-img"><br>
+          Descripción: Protege arrecifes de coral y hábitats de manatíes (declarada en 2021).<br>
+          <b>Conservación:</b> Protege los ecosistemas marinos.
+        `,
+        icon: reserveIcon
+      },
+      {
+        coords: [dmsToDecimal(12, 30, 'N'), dmsToDecimal(83, 30, 'W')],
+        type: 'mammal',
+        zone: 'Reserva de Biosfera del Caribe Nicaragüense',
+        name: 'Manatí',
+        popup: `
+          <b>Reserva de Biosfera del Caribe Nicaragüense</b><br>
+          <b>Especie: Manatí (Trichechus manatus)</b><br>
+          <img src="fauna/manate.jpg" alt="Manatí" class="popup-img"><br>
+          Estado: Vulnerable<br>
+          Hábitat: Ecosistemas marinos y ríos<br>
+          Amenazas: Colisiones, pérdida de hábitat<br>
+          <b>Conservación:</b> Protege los ríos y evita colisiones con embarcaciones.
+        `,
+        icon: mammalIcon
+      },
+      {
+        coords: [dmsToDecimal(12, 30, 'N'), dmsToDecimal(83, 30, 'W')],
+        type: 'plant',
+        zone: 'Reserva de Biosfera del Caribe Nicaragüense',
+        name: 'Caoba',
+        popup: `
+          <b>Reserva de Biosfera del Caribe Nicaragüense</b><br>
+          <b>Especie: Caoba (Swietenia macrophylla)</b><br>
+          <img src="flora/caoba.jpg" alt="Caoba" class="popup-img"><br>
+          Estado: Vulnerable<br>
+          Hábitat: Selva húmeda<br>
+          Amenazas: Tala ilegal, deforestación<br>
+          <b>Conservación:</b> Evita la tala ilegal para proteger este árbol maderable.
+        `,
+        icon: plantIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 59, 'N'), dmsToDecimal(86, 8, 'W')],
+        type: 'reserve',
+        zone: 'Parque Nacional Volcán Masaya',
+        name: 'Parque Nacional Volcán Masaya',
+        popup: `
+          <b>Parque Nacional Volcán Masaya</b><br>
+          <img src="reservas/Parque-Nacional-Volcan-Masaya.jpg" alt="Volcán Masaya" class="popup-img"><br>
+          Descripción: Volcán activo con cráteres y ecosistemas únicos, ideal para observación nocturna.<br>
+          <b>Conservación:</b> Promueve el turismo responsable.
+        `,
+        icon: reserveIcon
+      },
+      {
+        coords: [dmsToDecimal(11, 59, 'N'), dmsToDecimal(86, 8, 'W')],
+        type: 'plant',
+        zone: 'Parque Nacional Volcán Masaya',
+        name: 'Sacuanjoche',
+        popup: `
+          <b>Parque Nacional Volcán Masaya</b><br>
+          <b>Especie: Sacuanjoche (Plumeria rubra)</b><br>
+          <img src="flora/flor-de-sacuanjoche.jpg" alt="Sacuanjoche" class="popup-img"><br>
+          Estado: No evaluado<br>
+          Hábitat: Bosque seco<br>
+          Amenazas: Ninguna significativa<br>
+          <b>Conservación:</b> Promueve el cultivo sostenible de la flor nacional.
+        `,
+        icon: plantIcon
+      }
+    ];
+
+    // Añadir marcadores
+    var markerLayers = L.layerGroup().addTo(map);
+    markers.forEach(function(marker) {
+      L.marker(marker.coords, { icon: marker.icon, type: marker.type, zone: marker.zone, name: marker.name })
+        .bindPopup(marker.popup, { className: 'popup' })
+        .on('click', function() {
+          document.getElementById('info-panel').innerHTML = marker.popup;
+        })
+        .addTo(markerLayers);
+    });
+
+    // Función de filtrado
+    function filterMarkers(type) {
+      markerLayers.clearLayers();
+      markers.forEach(function(marker) {
+        if (type === 'all' || marker.type === type) {
+          L.marker(marker.coords, { icon: marker.icon, type: marker.type, zone: marker.zone, name: marker.name })
+            .bindPopup(marker.popup, { className: 'popup' })
+            .on('click', function() {
+              document.getElementById('info-panel').innerHTML = marker.popup;
+            })
+            .addTo(markerLayers);
+        }
+      });
+    }
+
+    // Función de búsqueda
+    document.getElementById('search').addEventListener('input', function(e) {
+      const query = e.target.value.toLowerCase();
+      markerLayers.clearLayers();
+      markers.forEach(function(marker) {
+        if (marker.name.toLowerCase().includes(query) || marker.zone.toLowerCase().includes(query)) {
+          L.marker(marker.coords, { icon: marker.icon, type: marker.type, zone: marker.zone, name: marker.name })
+            .bindPopup(marker.popup, { className: 'popup' })
+            .on('click', function() {
+              document.getElementById('info-panel').innerHTML = marker.popup;
+            })
+            .addTo(markerLayers);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
